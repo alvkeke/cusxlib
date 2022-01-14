@@ -7,9 +7,6 @@
 
 slist_t slist_node_create(slist_fn_alloc n_alloc, slist_fn_free n_free, slist_fn_fill n_fill, void *param_fill)
 {
-
-    if (!n_alloc || !n_free) goto err_inval;
-
     slist_t node = (slist_t) n_alloc();
     if (!node) goto err_malloc;
     
@@ -26,14 +23,11 @@ slist_t slist_node_create(slist_fn_alloc n_alloc, slist_fn_free n_free, slist_fn
 err_fill:
     n_free(node);
 err_malloc:
-err_inval:
     return NULL;
 }
 
 void slist_destory(slist_t list, slist_fn_free n_free)
 {
-    if (!n_free) return;
-
     while(list != NULL)
     {
         slist_t itr = list;
@@ -44,8 +38,6 @@ void slist_destory(slist_t list, slist_fn_free n_free)
 
 int slist_node_add(slist_t list, slist_t new_node, slist_fn_check is_exist)
 {
-    if (!list || !new_node) return -EINVAL;
-
     slist_t itr;
     for (itr = list; itr->next != NULL; itr = itr->next)
     {
@@ -67,18 +59,13 @@ int slist_node_add(slist_t list, slist_t new_node, slist_fn_check is_exist)
 
 int slist_node_add_head(slist_t *list, slist_t new_node)
 {
-    if (!list || !new_node) return -EINVAL;
-
     new_node->next = *list;
     *list = new_node;
-
     return 0;
 }
 
 int slist_node_del(slist_t *list, slist_fn_free n_free, slist_fn_check is_target, void *param)
 {
-    if (!list || !n_free || !is_target) return -EINVAL;
-    
     slist_t *itr;
     slist_t tmp;
 
@@ -95,13 +82,10 @@ int slist_node_del(slist_t *list, slist_fn_free n_free, slist_fn_check is_target
     }
 
     return -ENOENT;
-
 }
 
 slist_t slist_node_find(slist_t list, slist_fn_check is_target, void *param)
 {
-    if (!list || !is_target) return NULL;
-
     slist_t itr;
     for (itr = list; itr; itr = itr->next)
     {
@@ -116,8 +100,6 @@ slist_t slist_node_find(slist_t list, slist_fn_check is_target, void *param)
 
 int slist_node_set(slist_t list, slist_fn_fill n_set, slist_fn_check is_target, void *param_set, void *param_check)
 {
-    if (!list || !n_set || !is_target) return -EINVAL;
-
     slist_t itr;
     for (itr = list; itr; itr = itr->next)
     {
