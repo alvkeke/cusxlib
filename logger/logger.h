@@ -43,13 +43,11 @@ void logger_fd_init(FILE* fd);
 
 #define PRINTF(...) if (_log_output_fd) fprintf(_log_output_fd, __VA_ARGS__)
 
-#define LOG(LEVEL, ...) \
+#define LOG(LEVEL, FMT, ...) \
         do{\
             if (LEVEL < LOG_LVL_END && _log_level >= LEVEL){\
-                PRINTF("%s", log_color_string[LEVEL]);\
-                PRINTF("[%s] %s(%d) - ", log_lvl_string[LEVEL], __FUNCTION__, __LINE__);\
-                PRINTF(__VA_ARGS__);\
-                PRINTF("%s", log_color_string[0]);\
+                PRINTF("%s[%s] %s(%d) - " FMT "%s", log_color_string[LEVEL], \
+                        log_lvl_string[LEVEL], __FUNCTION__, __LINE__, ##__VA_ARGS__, log_color_string[0]);\
             }\
         }while(0);
 
