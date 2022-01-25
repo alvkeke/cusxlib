@@ -27,6 +27,10 @@ extern const char *log_color_string[];
  * @param lvl new logger level
  */
 void logger_lvl_set(int lvl);
+/* *****************************************************************************
+Copyright: alvkeke, 2021-2022
+License: MIT
+***************************************************************************** */
 
 /**
  * @brief init the logger fd
