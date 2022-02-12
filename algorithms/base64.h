@@ -14,7 +14,7 @@ License: MIT
  * @param n_ret length of result string
  * @return result string, NULL for failed.
  */
-char *algo_base64_encode(const char *src, int n_src, int *n_ret);
+char *algo_base64_encode(const unsigned char *src, int n_src, int *n_ret);
 
 /**
  * @brief decode an encoded-base64-string, `free` need to be called for release result string.

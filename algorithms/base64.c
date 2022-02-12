@@ -6,6 +6,7 @@ License: MIT
 #include "base64.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 static char _base64_table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -15,10 +16,10 @@ int _b64_num(char c)
     return x-_base64_table;
 }
 
-char *algo_base64_encode(const char *src, int n_src, int *n_ret)
+char *algo_base64_encode(const unsigned char *src, int n_src, int *n_ret)
 {
     char *ret;
-    char a, b, c;
+    unsigned char a, b, c;
     int nn;
     int n_mod;
 
@@ -40,12 +41,19 @@ char *algo_base64_encode(const char *src, int n_src, int *n_ret)
         return NULL;
     }
 
+    printf("=============== some check: n_src = %d\n", n_src);
+    for (int i=0; i<n_src; i++)
+    {
+        printf("%02x ", src[i]);
+    }
+    putchar('\n');
+
     int j=0;
     for (int i=0; i<n_src; i+=3)
     {
         a = src[i];
-        b = i+1>n_src? 0 : src[i+1];
-        c = i+2>n_src? 0 : src[i+2];
+        b = i+1>=n_src? 0 : src[i+1];
+        c = i+2>=n_src? 0 : src[i+2];
 
         ret[j++] = _base64_table[a>>2];
         ret[j++] = _base64_table[(a<<4 | b>>4) & 0x3f];
@@ -62,6 +70,13 @@ char *algo_base64_encode(const char *src, int n_src, int *n_ret)
     {
         ret[nn-2] = '=';
     }
+
+    printf("=============== some check: nn = %d\n", nn);
+    for (int i=0; i<nn; i++)
+    {
+        printf("%02x ", ret[i]);
+    }
+    putchar('\n');
 
     ret[nn-1] = 0x00;
     *n_ret = nn;
