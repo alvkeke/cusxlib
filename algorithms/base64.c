@@ -41,13 +41,6 @@ char *algo_base64_encode(const unsigned char *src, int n_src, int *n_ret)
         return NULL;
     }
 
-    printf("=============== some check: n_src = %d\n", n_src);
-    for (int i=0; i<n_src; i++)
-    {
-        printf("%02x ", src[i]);
-    }
-    putchar('\n');
-
     int j=0;
     for (int i=0; i<n_src; i+=3)
     {
@@ -70,13 +63,6 @@ char *algo_base64_encode(const unsigned char *src, int n_src, int *n_ret)
     {
         ret[nn-2] = '=';
     }
-
-    printf("=============== some check: nn = %d\n", nn);
-    for (int i=0; i<nn; i++)
-    {
-        printf("%02x ", ret[i]);
-    }
-    putchar('\n');
 
     ret[nn-1] = 0x00;
     *n_ret = nn;
