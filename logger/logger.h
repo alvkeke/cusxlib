@@ -53,7 +53,7 @@ void logger_fd_init(FILE* fd);
                 PRINTF("%s[%s] %s(%d) - " FMT "%s", log_color_string[LEVEL], \
                         log_lvl_string[LEVEL], __FUNCTION__, __LINE__, ##__VA_ARGS__, log_color_string[0]);\
             }\
-        }while(0);
+        }while(0)
 
 
 #define LOG_E(...) LOG(LOG_LVL_ERROR, __VA_ARGS__)
