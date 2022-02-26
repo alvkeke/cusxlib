@@ -16,7 +16,7 @@ int _b64_num(char c)
     return x-_base64_table;
 }
 
-char *algo_base64_encode(const unsigned char *src, int n_src, int *n_ret)
+char *algo_base64_encode(const unsigned char *src, int n_src, size_t *n_ret)
 {
     char *ret;
     unsigned char a, b, c;
@@ -88,7 +88,7 @@ static int _b64_check_end(const char *src, int n)
     return i;
 }
 
-char *algo_base64_decode(const char *src, int n_src, int *n_ret)
+unsigned char *algo_base64_decode(const char *src, int n_src, size_t *n_ret)
 {
     char *ret;
     int nn;
