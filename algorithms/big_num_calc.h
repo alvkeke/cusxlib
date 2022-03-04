@@ -62,9 +62,38 @@ int algo_big_num_cmp(size_t n, const uint8_t *num1, const uint8_t *num2);
  * @param n length(bytes) of numbers
  * @param num1 number 1
  * @param num2 number 2
- * @param ret
- * @return
+ * @param ret pointer to the buffer for holding the result. one of the operate number can be pass in as a result buffer
+ * @return carry if <= 0, other for errno
  */
 int algo_big_num_mul(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret);
+
+/**
+ * check if a number is zero
+ * @param n length(bytes) of numbers
+ * @param num number need to be check
+ * @return 1 for yes, 0 for no
+ */
+int algo_big_num_is_zero(size_t n, const uint8_t *num);
+
+/**
+ * divide `num1` by `num2` ( `num1/num2` )
+ * @param n length(bytes) of numbers
+ * @param num1 number 1
+ * @param num2 number 2
+ * @param ret pointer to the buffer for holding the result. one of the operate number can be pass in as a result buffer
+ * @return carry if <= 0, other for errno
+ */
+int algo_big_num_div(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret);
+
+/**
+ * get mod of `num1` by `num2` ( `num1%num2` )
+ * @param n length(bytes) of numbers
+ * @param num1 number 1
+ * @param num2 number 2
+ * @param ret pointer to the buffer for holding the result. one of the operate number can be pass in as a result buffer
+ * @return carry if <= 0, other for errno
+ */
+int algo_big_num_mod(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret);
+
 
 #endif //__ALGO_BIG_NUM_CALC_H_HH
