@@ -12,8 +12,6 @@ Created on 2022-03-04
 #define  MAX(a, b) (a>b?a:b)
 #define  MIN(a, b) (a<b?a:b)
 
-#include <stdio.h>
-
 int algo_big_num_add(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret)
 {
 
@@ -43,14 +41,14 @@ int algo_big_num_inc(size_t n, const uint8_t *num, uint8_t *ret)
 
     tmp = num[0] + 1;
     ret[0] = tmp & 0xff;
-    carry = (tmp&0xff) >> 8;
+    carry = (tmp&0xff00) >> 8;
 
     for (i=1; i<n; i++)
     {
         if (!carry) break;
         tmp = num[i] + carry;
         ret[i] = tmp & 0xff;
-        carry = (tmp&0xff) >> 8;
+        carry = (tmp&0xff00) >> 8;
     }
     return carry;
 }
@@ -63,6 +61,13 @@ void algo_big_num_not(size_t n, const uint8_t *num, uint8_t *ret)
     }
 }
 
+static int algo_big_num_sub_priv(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret, uint8_t *tmp_buf)
+{
+    algo_big_num_not(n, num2, tmp_buf);
+    algo_big_num_inc(n, tmp_buf, tmp_buf);
+    return !algo_big_num_add(n, num1, tmp_buf, ret);
+}
+
 int algo_big_num_sub(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret)
 {
     uint8_t *num_not;
@@ -71,9 +76,7 @@ int algo_big_num_sub(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t
     num_not = (uint8_t*) malloc(n);
     if (!num_not) return -ENOMEM;
 
-    algo_big_num_not(n, num2, num_not);
-    algo_big_num_inc(n, num_not, num_not);
-    carry = !algo_big_num_add(n, num1, num_not, ret);
+    carry = algo_big_num_sub_priv(n, num1, num2, ret, num_not);
     free(num_not);
 
     return carry;
@@ -81,22 +84,7 @@ int algo_big_num_sub(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t
 
 int algo_big_num_cmp(size_t n, const uint8_t *num1, const uint8_t *num2)
 {
-    size_t i;
-    for (i=n-1; i>=0; i--)
-    {
-        if (num1[i] > num2[i]) return i;
-        if (num1[i] < num2[i]) return -i;
-    }
-
-    return 0;
-}
-
-void _print_bn(size_t n, const uint8_t *num)
-{
-    for (int i = n-1; i >=0; --i) {
-        printf("%02x", num[i]);
-    }
-    puts("");
+    return memcmp(num1, num2, n);
 }
 
 int algo_big_num_mul(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret)
@@ -117,9 +105,369 @@ int algo_big_num_mul(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t
             tmp = num1[i] * num2[j];
             i_ret = i+j;
             carry = algo_big_num_add(2, ret+i_ret, (uint8_t *) &tmp, ret+i_ret);
-            if (carry) algo_big_num_inc(n_ret-i_ret, ret+i_ret+1, ret+i_ret+1);
+            if (carry && i_ret+2 < n_ret) algo_big_num_inc(n_ret-i_ret, ret+i_ret+2, ret+i_ret+2);
         }
     }
 
     return carry;
 }
+
+int algo_big_num_is_zero(size_t n, const uint8_t *num)
+{
+    for (int i = 0; i < n; ++i) {
+        if (num[i]) return 0;
+    }
+
+    return 1;
+}
+
+int algo_big_num_div(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret)
+{
+    uint8_t *tmp_buf;
+    uint8_t *sub_ret;
+    int carry;
+
+    if (!n) return -EINVAL;
+    if (algo_big_num_is_zero(n, num2)) return -EINVAL;
+
+    tmp_buf = (uint8_t*) malloc(n);
+    if (!tmp_buf) return -ENOMEM;
+    sub_ret = (uint8_t*) malloc(n);
+    if (!sub_ret)
+    {
+        free(tmp_buf);
+        return -ENOMEM;
+    }
+
+    memset(ret, 0, n);
+    if (algo_big_num_is_zero(n, num1)) return 0;
+    memcpy(sub_ret, num1, n);
+
+    while(1){
+        carry = algo_big_num_sub_priv(n, sub_ret, num2, sub_ret, tmp_buf);
+        if (carry) break;
+        algo_big_num_inc(n, ret, ret);
+    }
+
+    free(tmp_buf);
+    free(sub_ret);
+    return 0;
+}
+
+int algo_big_num_mod(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret)
+{
+    uint8_t *tmp_buf;
+
+    if (!n) return -EINVAL;
+    if (algo_big_num_is_zero(n, num2)) return -EINVAL;
+
+    tmp_buf = (uint8_t*) malloc(n);
+    if (!tmp_buf) return -ENOMEM;
+
+    memset(ret, 0, n);
+    if (algo_big_num_is_zero(n, num1)) return 0;
+    memcpy(ret, num1, n);
+
+    while(1){
+        if (algo_big_num_cmp(n, ret, num2) < 0) break;
+        algo_big_num_sub_priv(n, ret, num2, ret, tmp_buf);
+    }
+
+    free(tmp_buf);
+    return 0;
+}
+
+
+#ifdef UNIT_TEST_ALGO_BIG_NUM
+
+#include <stdio.h>
+
+
+int main()
+{
+    uint32_t a, b, c;
+    uint8_t *x_ret = (uint8_t *) &c;
+    int carry;
+
+    // ============================= add test ============================================================
+    a = 0x12345678;
+    b = 0x87654321;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 0x87654321;
+    b = 0x12345678;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 0xffffffff;
+    b = 1;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 1;
+    b = 0xffffffff;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 0xffff0000;
+    b = 0x00010000;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 0xffffffff;
+    b = 0xffffffff;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 0xfeff01;
+    b = 0xfe0100;
+    carry = algo_big_num_add(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    a = 0xfeff01;
+    b = 0xfe01;
+    c = a;
+    carry = algo_big_num_add(2, x_ret+1, (const uint8_t *) &b, x_ret+1);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %06x00 = %08x, carry=%d\n\n", a, b<<8, a+(b<<8), a, b, c, carry);
+
+    a = 0xfeff;
+    b = 0xfe01;
+    c = 0;
+    carry = algo_big_num_add(sizeof(a)/2, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x + %08x = %08x\nbig num: %08x + %08x = %08x, carry=%d\n\n", a, b, a+b, a, b, c, carry);
+
+    // =================================== sub test =======================================================
+    a = 1;
+    b = 1;
+    carry = algo_big_num_sub(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x - %08x = %08x\nbig num: %08x - %08x = %08x, carry=%d\n\n", a, b, a-b, a, b, c, carry);
+
+    a = 2;
+    b = 1;
+    carry = algo_big_num_sub(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x - %08x = %08x\nbig num: %08x - %08x = %08x, carry=%d\n\n", a, b, a-b, a, b, c, carry);
+
+    a = 1;
+    b = 2;
+    carry = algo_big_num_sub(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x - %08x = %08x\nbig num: %08x - %08x = %08x, carry=%d\n\n", a, b, a-b, a, b, c, carry);
+
+    a = 0xffffffff;
+    b = 0xffffffff;
+    carry = algo_big_num_sub(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x - %08x = %08x\nbig num: %08x - %08x = %08x, carry=%d\n\n", a, b, a-b, a, b, c, carry);
+
+    a = 1;
+    b = 0xffffffff;
+    carry = algo_big_num_sub(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x - %08x = %08x\nbig num: %08x - %08x = %08x, carry=%d\n\n", a, b, a-b, a, b, c, carry);
+
+    // ==================================== inc test =======================================================
+    c = 0;
+    x_ret = (uint8_t *) &c;
+    printf("big_num_inc test from %08x: ", c);
+    for (int i=0; i<5; i++)
+    {
+        carry = algo_big_num_inc(sizeof(c), x_ret, x_ret);
+        printf("%08x[%d] ", c, carry);
+    }
+    puts("");
+
+    c = 0xfd;
+    x_ret = (uint8_t *) &c;
+    printf("big_num_inc test from %08x: ", c);
+    for (int i=0; i<5; i++)
+    {
+        carry = algo_big_num_inc(sizeof(c), x_ret, x_ret);
+        printf("%08x[%d] ", c, carry);
+    }
+    puts("");
+
+    c = 0xfffffffd;
+    x_ret = (uint8_t *) &c;
+    printf("big_num_inc test from %08x: ", c);
+    for (int i=0; i<5; i++)
+    {
+        carry = algo_big_num_inc(sizeof(c), x_ret, x_ret);
+        printf("%08x[%d] ", c, carry);
+    }
+    puts("\n");
+
+    // ===================================== is_zero test =======================================================
+    c = 0;
+    carry = algo_big_num_is_zero(sizeof(c), x_ret);
+    printf("%08x %s zero\n", c, carry? "is" : "is not");
+
+    c = 1;
+    carry = algo_big_num_is_zero(sizeof(c), x_ret);
+    printf("%08x %s zero\n", c, carry? "is" : "is not");
+
+    c = -1;
+    carry = algo_big_num_is_zero(sizeof(c), x_ret);
+    printf("%08x %s zero\n\n", c, carry? "is" : "is not");
+
+    // ==================================== cmp test =========================================================
+    a = 1;
+    b = 1;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    a = 0;
+    b = 0;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    a = 0xffffffff;
+    b = 0xffffffff;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    a = 2;
+    b = 1;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    a = 1;
+    b = 2;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    a = 0xffffffff;
+    b = 1;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    a = 1;
+    b = 0xffffffff;
+    carry = algo_big_num_cmp(sizeof(a), (const uint8_t *) &a, (const uint8_t *) &b);
+    printf("[%d] %08x %s %08x\n\n", carry, a, carry>0 ? ">" : (carry==0 ? "==" : "<"), b);
+
+    // ========================================= not test ==================================================
+    a = 0xf0f0f0f0;
+    algo_big_num_not(sizeof(a), (const uint8_t *) &a, x_ret);
+    printf("~%08x == %08x\n", a, c);
+
+    // ======================================== mul test ==================================================
+    a = 0x1234;
+    b = 0x3456;
+    carry = algo_big_num_mul(2, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x * %08x = %08x\nbig num: %08x * %08x = %08x, carry=%d\n\n", a, b, a*b, a, b, c, carry);
+
+    a = 0;
+    b = 0x3456;
+    carry = algo_big_num_mul(2, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x * %08x = %08x\nbig num: %08x * %08x = %08x, carry=%d\n\n", a, b, a*b, a, b, c, carry);
+
+    a = 0x3456;
+    b = 0;
+    carry = algo_big_num_mul(2, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x * %08x = %08x\nbig num: %08x * %08x = %08x, carry=%d\n\n", a, b, a*b, a, b, c, carry);
+
+    a = 0xffff;
+    b = 0xffff;
+    carry = algo_big_num_mul(2, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x * %08x = %08x\nbig num: %08x * %08x = %08x, carry=%d\n\n", a, b, a*b, a, b, c, carry);
+
+    a = 1;
+    b = 0xfafa;
+    carry = algo_big_num_mul(2, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x * %08x = %08x\nbig num: %08x * %08x = %08x, carry=%d\n\n", a, b, a*b, a, b, c, carry);
+
+
+    // =========================================== div test =========================================================
+    a = 12;
+    b = 1;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 2;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 3;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 4;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 5;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 6;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 7;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 13;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = %08x\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a/b, a, b, c, carry);
+
+    a = 12;
+    b = 0;
+    carry = algo_big_num_div(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x / %08x = NIL\nbig num: %08x / %08x = %08x, carry=%d\n\n", a, b, a, b, c, carry);
+
+    // =========================================== mod test =========================================================
+    a = 12;
+    b = 1;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 2;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 3;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 4;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 5;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 6;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 7;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 13;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = %08x\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a%b, a, b, c, carry);
+
+    a = 12;
+    b = 0;
+    carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
+    printf("origin:  %08x mod %08x = NIL\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a, b, c, carry);
+
+    return 0;
+}
+
+#endif
