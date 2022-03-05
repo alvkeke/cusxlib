@@ -95,5 +95,12 @@ int algo_big_num_div(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t
  */
 int algo_big_num_mod(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t *ret);
 
+/**
+ * check if a big number is a prime number
+ * @param n length(bytes) of numbers
+ * @param num number need to be check
+ * @return 0 for not, 1 for yes, negative as errno
+ */
+int algo_big_num_is_prime(size_t n, const uint8_t *num);
 
 #endif //__ALGO_BIG_NUM_CALC_H_HH

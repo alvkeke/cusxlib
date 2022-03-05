@@ -177,11 +177,47 @@ int algo_big_num_mod(size_t n, const uint8_t *num1, const uint8_t *num2, uint8_t
     return 0;
 }
 
+int algo_big_num_is_prime(size_t n, const uint8_t *num)
+{
+    uint8_t *itr;
+    uint8_t *buf;
+    int ret;
+
+    itr = (uint8_t*) malloc(n);
+    if (!itr) return -ENOMEM;
+    buf = (uint8_t*) malloc(n);
+    if (!buf)
+    {
+        free(itr);
+        return -ENOMEM;
+    }
+
+    memset(itr + 1, 0, n - 1);
+    itr[0] = 2;
+
+    while(algo_big_num_cmp(n, itr, num) < 0)    // while(itr<num)
+    {
+        ret = algo_big_num_mod(n, num, itr, buf);   // buf = num % itr;
+        if (ret < 0) goto algo_big_num_is_prime_exit;
+        if (algo_big_num_is_zero(n, buf))   // if (buf == 0);
+        {
+            ret = 0;
+            goto algo_big_num_is_prime_exit;
+        }
+        algo_big_num_inc(n, itr, itr);  // itr++
+    }
+
+    ret = 1;
+algo_big_num_is_prime_exit:
+    free(itr);
+    free(buf);
+    return ret;
+}
 
 #ifdef UNIT_TEST_ALGO_BIG_NUM
 
 #include <stdio.h>
-
+#include "prime_num.h"
 
 int main()
 {
@@ -466,6 +502,196 @@ int main()
     b = 0;
     carry = algo_big_num_mod(4, (const uint8_t *) &a, (const uint8_t *) &b, x_ret);
     printf("origin:  %08x mod %08x = NIL\nbig num: %08x mod %08x = %08x, carry=%d\n\n", a, b, a, b, c, carry);
+
+    puts("====== is prime num test ========");
+    for(uint32_t i=2; i<11; i++)
+    {
+        carry = algo_big_num_is_prime(sizeof(i), (uint8_t*)&i);
+        printf("[%02u] %d:%d, ", i, algo_is_num_prime(i), carry);
+    }
+    puts("");
+
+    for(uint32_t i=11; i<20; i++)
+    {
+        carry = algo_big_num_is_prime(sizeof(i), (uint8_t*)&i);
+        printf("[%02u] %d:%d, ", i, algo_is_num_prime(i), carry);
+    }
+    puts("");
+    puts("====== is prime num test ========\n");
+
+#include <sys/time.h>
+    struct timeval t11, t12, t21, t22;
+
+#define ITR_TIMES 1
+    a = 0x43528761;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_is_num_prime(a);
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_is_prime(sizeof(a), (uint8_t*)&a);
+    gettimeofday(&t22, NULL);
+
+    printf("is prime[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 10
+    a = 0x43528761;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_is_num_prime(a);
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_is_prime(sizeof(a), (uint8_t*)&a);
+    gettimeofday(&t22, NULL);
+
+    printf("is prime[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 100
+    a = 0x43528761;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_is_num_prime(a);
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_is_prime(sizeof(a), (uint8_t*)&a);
+    gettimeofday(&t22, NULL);
+
+    printf("is prime[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 1000
+    a = 0x43528761;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_is_num_prime(a);
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_is_prime(sizeof(a), (uint8_t*)&a);
+    gettimeofday(&t22, NULL);
+
+    printf("is prime[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 10000
+    a = 0x43528761;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_is_num_prime(a);
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_is_prime(sizeof(a), (uint8_t*)&a);
+    gettimeofday(&t22, NULL);
+
+    printf("is prime[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+//#define ITR_TIMES 100000
+//    a = 0x43528761;
+//    gettimeofday(&t11, NULL);
+//    for (int i=0; i<ITR_TIMES; i++) algo_is_num_prime(a);
+//    gettimeofday(&t12, NULL);
+//
+//    gettimeofday(&t21, NULL);
+//    for (int i=0; i<ITR_TIMES; i++) algo_big_num_is_prime(sizeof(a), (uint8_t*)&a);
+//    gettimeofday(&t22, NULL);
+//
+//    printf("is prime[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+//           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+//           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+//           );
+
+
+#define ITR_TIMES 10
+    a = 0x43528761;
+    b = 0x32123123;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) c = a+b;
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_add(4, (uint8_t*)&a,(uint8_t*) &b,(uint8_t*) &c);
+    gettimeofday(&t22, NULL);
+
+    printf("add[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 100
+    a = 0x43528761;
+    b = 0x32123123;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) c = a+b;
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_add(4, (uint8_t*)&a,(uint8_t*) &b,(uint8_t*) &c);
+    gettimeofday(&t22, NULL);
+
+    printf("add[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 1000
+    a = 0x43528761;
+    b = 0x32123123;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) c = a+b;
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_add(4, (uint8_t*)&a,(uint8_t*) &b,(uint8_t*) &c);
+    gettimeofday(&t22, NULL);
+
+    printf("add[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 10000
+    a = 0x43528761;
+    b = 0x32123123;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) c = a+b;
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_add(4, (uint8_t*)&a,(uint8_t*) &b,(uint8_t*) &c);
+    gettimeofday(&t22, NULL);
+
+    printf("add[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
+
+#define ITR_TIMES 100000
+    a = 0x43528761;
+    b = 0x32123123;
+    gettimeofday(&t11, NULL);
+    for (int i=0; i<ITR_TIMES; i++) c = a+b;
+    gettimeofday(&t12, NULL);
+
+    gettimeofday(&t21, NULL);
+    for (int i=0; i<ITR_TIMES; i++) algo_big_num_add(4, (uint8_t*)&a,(uint8_t*) &b,(uint8_t*) &c);
+    gettimeofday(&t22, NULL);
+
+    printf("add[%d times] : origin: %ld:%ld,  bignum: %ld:%ld\n", ITR_TIMES,
+           t12.tv_sec-t11.tv_sec, t12.tv_usec-t11.tv_usec,
+           t22.tv_sec-t21.tv_sec, t22.tv_usec-t21.tv_usec
+           );
 
     return 0;
 }
