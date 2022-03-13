@@ -15,6 +15,6 @@ Created on 2022-03-12
  * @param ... parameters (see `execvp`)
  * @return 0 for success, others for errno.
  */
-int mysystem(int *fout, int *fin, const char *cmd, ...);
+int mysystem(int *fout, int *fin, const char *pwd, const char *cmd, ...);
 
 #endif //__LIB_MYSYSTEM_H__

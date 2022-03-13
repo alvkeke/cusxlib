@@ -18,7 +18,7 @@ Created on 2022-03-12
 #define PCLOSE(a) do {close(a[0]); close(a[1]);}while(0)
 
 
-int mysystem(int *fout, int *fin, const char *cmd, ...)
+int mysystem(int *fout, int *fin, const char *pwd, const char *cmd, ...)
 {
 
     int ret;
@@ -66,6 +66,7 @@ int mysystem(int *fout, int *fin, const char *cmd, ...)
         dup2(PREAD(pcin), STDIN_FILENO);
         dup2(PWRITE(pcout), STDOUT_FILENO);
 
+        chdir(pwd);
         execvp(cmd, argv);
 
         close(PWRITE(pcout));
